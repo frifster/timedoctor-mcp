@@ -26,7 +26,7 @@ Fetches time tracking reports from Time Doctor and returns them as CSV data. Int
 
 ### Option A: Using uvx (Easiest - No Installation Required)
 
-The simplest way to use Time Doctor MCP is with `uvx`, which runs the server directly from PyPI without manual installation:
+The simplest way to use Time Doctor MCP is with `uvx`, which automatically downloads the package from PyPI and runs it locally without manual installation:
 
 **Claude Desktop/Code:**
 ```json
