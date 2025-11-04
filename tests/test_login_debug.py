@@ -53,6 +53,7 @@ async def test_login():
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
     finally:

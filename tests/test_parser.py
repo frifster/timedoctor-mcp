@@ -23,14 +23,14 @@ def test_parser():
         print(f"✗ HTML file not found: {html_file}")
         return False
 
-    with open(html_file, 'r', encoding='utf-8') as f:
+    with open(html_file, encoding="utf-8") as f:
         html = f.read()
 
     print(f"✓ Loaded HTML file: {len(html)} bytes")
 
     # Parse it
     parser = TimeDocorParser()
-    entries = parser.parse_daily_report(html, '2025-11-04')
+    entries = parser.parse_daily_report(html, "2025-11-04")
 
     print(f"✓ Parsed {len(entries)} entries")
 

@@ -10,15 +10,15 @@ This tests the full single-session architecture with variable date ranges.
 
 import asyncio
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from scraper import TimeDocorScraper
 from parser import TimeDocorParser
-from transformer import export_to_csv, TimeDocorTransformer
+from scraper import TimeDocorScraper
+from transformer import TimeDocorTransformer, export_to_csv
 
 
 async def test_complete_flow():
@@ -33,8 +33,8 @@ async def test_complete_flow():
     try:
         # Test with last 3 days
         today = datetime.now()
-        start_date = (today - timedelta(days=2)).strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
+        start_date = (today - timedelta(days=2)).strftime("%Y-%m-%d")
+        end_date = today.strftime("%Y-%m-%d")
 
         print(f"\nDate Range: {start_date} to {end_date} (3 days)")
         print("-" * 60)
@@ -45,14 +45,14 @@ async def test_complete_flow():
         print(f"   ✓ Got {len(reports)} reports")
 
         for report in reports:
-            html_size = len(report['html']) / 1024  # KB
+            html_size = len(report["html"]) / 1024  # KB
             print(f"   - {report['date']}: {html_size:.1f} KB")
 
         # Step 2: Parse all reports
         print("\n2. Parsing HTML data...")
         all_entries = []
         for report in reports:
-            entries = parser.parse_daily_report(report['html'], report['date'])
+            entries = parser.parse_daily_report(report["html"], report["date"])
             all_entries.extend(entries)
             print(f"   - {report['date']}: {len(entries)} entries")
 
@@ -86,14 +86,14 @@ async def test_complete_flow():
 
         # Step 7: Verify CSV file
         print("\n7. Verifying CSV file...")
-        with open(csv_path, 'r') as f:
+        with open(csv_path) as f:
             lines = f.readlines()
             print(f"   ✓ CSV has {len(lines)} lines (including header and TOTAL)")
-            print(f"\n   First 5 lines:")
+            print("\n   First 5 lines:")
             for line in lines[:5]:
                 print(f"     {line.strip()}")
             if len(lines) > 5:
-                print(f"   ...\n   Last line:")
+                print("   ...\n   Last line:")
                 print(f"     {lines[-1].strip()}")
 
         print("\n" + "=" * 60)
@@ -105,6 +105,7 @@ async def test_complete_flow():
     except Exception as e:
         print(f"\n✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -117,7 +118,7 @@ async def test_single_day():
     scraper = TimeDocorScraper()
 
     try:
-        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         print(f"\nDate: {yesterday}")
         print("-" * 60)
@@ -126,7 +127,7 @@ async def test_single_day():
         print(f"✓ Got {len(reports)} report (should be 1)")
 
         if len(reports) == 1:
-            print(f"✓ Single day test PASSED")
+            print("✓ Single day test PASSED")
             return True
         else:
             print(f"✗ Expected 1 report, got {len(reports)}")
@@ -146,8 +147,8 @@ async def test_week():
 
     try:
         today = datetime.now()
-        start_date = (today - timedelta(days=6)).strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
+        start_date = (today - timedelta(days=6)).strftime("%Y-%m-%d")
+        end_date = today.strftime("%Y-%m-%d")
 
         print(f"\nDate Range: {start_date} to {end_date} (7 days)")
         print("-" * 60)
@@ -156,7 +157,7 @@ async def test_week():
         print(f"✓ Got {len(reports)} reports (should be 7)")
 
         if len(reports) == 7:
-            print(f"✓ Week test PASSED")
+            print("✓ Week test PASSED")
             return True
         else:
             print(f"✗ Expected 7 reports, got {len(reports)}")

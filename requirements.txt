@@ -17,3 +17,6 @@ python-dateutil==2.9.0.post0
 
 # Logging
 colorlog==6.9.0
+
+# Development Tools
+ruff==0.8.4

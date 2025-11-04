@@ -5,19 +5,20 @@ Run with visible browser to see what's happening
 
 import asyncio
 import os
-import sys
+
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
 load_dotenv()
 
+
 async def debug_login():
     """Test login with visible browser and better error handling."""
 
-    email = os.getenv('TD_EMAIL')
-    password = os.getenv('TD_PASSWORD')
+    email = os.getenv("TD_EMAIL")
+    password = os.getenv("TD_PASSWORD")
 
-    if not email or not password or email == 'user@example.com':
+    if not email or not password or email == "user@example.com":
         print("❌ Please configure TD_EMAIL and TD_PASSWORD in .env file")
         return False
 
@@ -33,12 +34,10 @@ async def debug_login():
         print("1️⃣  Launching browser (visible mode)...")
         browser = await playwright.chromium.launch(
             headless=False,  # Visible browser to see what happens
-            args=['--no-sandbox']
+            args=["--no-sandbox"],
         )
 
-        context = await browser.new_context(
-            viewport={'width': 1920, 'height': 1080}
-        )
+        context = await browser.new_context(viewport={"width": 1920, "height": 1080})
 
         page = await context.new_page()
         page.set_default_timeout(60000)  # Increased to 60 seconds
@@ -49,7 +48,7 @@ async def debug_login():
         print("    (This might take a while...)")
 
         # Try with 'load' instead of 'networkidle' - less strict
-        await page.goto(login_url, wait_until='load', timeout=60000)
+        await page.goto(login_url, wait_until="load", timeout=60000)
 
         print("✅ Page loaded!")
         print()
@@ -65,7 +64,7 @@ async def debug_login():
             'input[name="email"]',
             'input[id*="email"]',
             'input[placeholder*="email"]',
-            '#email'
+            "#email",
         ]
 
         email_input = None
@@ -75,7 +74,7 @@ async def debug_login():
                 if email_input:
                     print(f"✅ Found email input: {selector}")
                     break
-            except:
+            except Exception:
                 continue
 
         if not email_input:
@@ -83,7 +82,7 @@ async def debug_login():
             print("Page URL:", page.url)
             print()
             print("Let me take a screenshot...")
-            await page.screenshot(path='debug_screenshot.png')
+            await page.screenshot(path="debug_screenshot.png")
             print("Screenshot saved to: debug_screenshot.png")
             return False
 
@@ -95,7 +94,7 @@ async def debug_login():
 
         if not password_input:
             print("❌ Could not find password input field")
-            await page.screenshot(path='debug_screenshot.png')
+            await page.screenshot(path="debug_screenshot.png")
             print("Screenshot saved to: debug_screenshot.png")
             return False
 
@@ -107,7 +106,7 @@ async def debug_login():
             'button[type="submit"]',
             'button:has-text("Log in")',
             'button:has-text("Sign in")',
-            'input[type="submit"]'
+            'input[type="submit"]',
         ]
 
         login_button = None
@@ -117,12 +116,12 @@ async def debug_login():
                 if login_button:
                     print(f"✅ Found login button: {selector}")
                     break
-            except:
+            except Exception:
                 continue
 
         if not login_button:
             print("❌ Could not find login button")
-            await page.screenshot(path='debug_screenshot.png')
+            await page.screenshot(path="debug_screenshot.png")
             return False
 
         print("8️⃣  Clicking login button...")
@@ -132,19 +131,19 @@ async def debug_login():
 
         # Wait for either success or error
         try:
-            await page.wait_for_url('**/app/**', timeout=15000)
+            await page.wait_for_url("**/app/**", timeout=15000)
             print()
             print("✅ LOGIN SUCCESSFUL!")
             print(f"   Redirected to: {page.url}")
             print()
 
             # Take screenshot of logged in page
-            await page.screenshot(path='logged_in_screenshot.png')
+            await page.screenshot(path="logged_in_screenshot.png")
             print("Screenshot saved to: logged_in_screenshot.png")
 
             return True
 
-        except Exception as e:
+        except Exception:
             print()
             print("⚠️  Did not redirect to app page")
             print(f"   Current URL: {page.url}")
@@ -158,12 +157,12 @@ async def debug_login():
                     if text:
                         print(f"   - {text}")
 
-            await page.screenshot(path='debug_screenshot.png')
+            await page.screenshot(path="debug_screenshot.png")
             print("   Screenshot saved to: debug_screenshot.png")
 
             # Check if we're actually logged in even if URL didn't change
             current_url = page.url
-            if '/app/' in current_url and '/login' not in current_url:
+            if "/app/" in current_url and "/login" not in current_url:
                 print()
                 print("✅ Actually logged in! (URL different than expected)")
                 return True

@@ -5,9 +5,7 @@ Transforms parsed time tracking data to CSV format
 
 import csv
 import logging
-from typing import List, Dict
 from datetime import datetime
-import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -15,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Get project directories
 script_dir = Path(__file__).parent
 project_dir = script_dir.parent
-output_dir = project_dir / 'output'
+output_dir = project_dir / "output"
 
 # Ensure output directory exists
 output_dir.mkdir(exist_ok=True)
@@ -43,7 +41,7 @@ class TimeDocorTransformer:
         """
         return round(seconds / 3600, 2)
 
-    def format_date(self, date_str: str, output_format: str = '%m/%d/%Y') -> str:
+    def format_date(self, date_str: str, output_format: str = "%m/%d/%Y") -> str:
         """
         Format date string to desired output format.
 
@@ -55,13 +53,13 @@ class TimeDocorTransformer:
             str: Formatted date string
         """
         try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
             return date_obj.strftime(output_format)
         except Exception as e:
             logger.warning(f"Error formatting date '{date_str}': {e}")
             return date_str
 
-    def transform_entries(self, entries: List[Dict]) -> List[Dict]:
+    def transform_entries(self, entries: list[dict]) -> list[dict]:
         """
         Transform parsed entries to CSV-ready format.
 
@@ -75,18 +73,18 @@ class TimeDocorTransformer:
 
         for entry in entries:
             transformed_entry = {
-                'Date': self.format_date(entry['date']),
-                'Project': entry['project'],
-                'Task': entry['task'],
-                'Description': entry['description'],
-                'WORK HOUR': self.seconds_to_decimal_hours(entry['seconds'])
+                "Date": self.format_date(entry["date"]),
+                "Project": entry["project"],
+                "Task": entry["task"],
+                "Description": entry["description"],
+                "WORK HOUR": self.seconds_to_decimal_hours(entry["seconds"]),
             }
             transformed.append(transformed_entry)
 
         logger.info(f"Transformed {len(transformed)} entries")
         return transformed
 
-    def calculate_total(self, entries: List[Dict]) -> float:
+    def calculate_total(self, entries: list[dict]) -> float:
         """
         Calculate total hours from entries.
 
@@ -96,10 +94,10 @@ class TimeDocorTransformer:
         Returns:
             float: Total hours
         """
-        total = sum(entry['WORK HOUR'] for entry in entries)
+        total = sum(entry["WORK HOUR"] for entry in entries)
         return round(total, 2)
 
-    def sort_entries(self, entries: List[Dict], sort_by: str = 'Date') -> List[Dict]:
+    def sort_entries(self, entries: list[dict], sort_by: str = "Date") -> list[dict]:
         """
         Sort entries by specified field.
 
@@ -111,12 +109,14 @@ class TimeDocorTransformer:
             List[Dict]: Sorted entries
         """
         try:
-            return sorted(entries, key=lambda x: x.get(sort_by, ''))
+            return sorted(entries, key=lambda x: x.get(sort_by, ""))
         except Exception as e:
             logger.warning(f"Error sorting entries: {e}")
             return entries
 
-    def export_to_csv(self, entries: List[Dict], output_file: str, include_total: bool = True) -> str:
+    def export_to_csv(
+        self, entries: list[dict], output_file: str, include_total: bool = True
+    ) -> str:
         """
         Export transformed entries to CSV file.
 
@@ -140,10 +140,10 @@ class TimeDocorTransformer:
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Define CSV columns
-            fieldnames = ['Date', 'Project', 'Task', 'Description', 'WORK HOUR']
+            fieldnames = ["Date", "Project", "Task", "Description", "WORK HOUR"]
 
             # Write CSV
-            with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
+            with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
                 # Write header
@@ -157,11 +157,11 @@ class TimeDocorTransformer:
                 if include_total and entries:
                     total_hours = self.calculate_total(entries)
                     total_row = {
-                        'Date': 'TOTAL',
-                        'Project': '',
-                        'Task': '',
-                        'Description': '',
-                        'WORK HOUR': total_hours
+                        "Date": "TOTAL",
+                        "Project": "",
+                        "Task": "",
+                        "Description": "",
+                        "WORK HOUR": total_hours,
                     }
                     writer.writerow(total_row)
 
@@ -172,7 +172,7 @@ class TimeDocorTransformer:
             logger.error(f"Error exporting to CSV: {e}")
             raise
 
-    def get_hours_summary(self, entries: List[Dict]) -> Dict[str, float]:
+    def get_hours_summary(self, entries: list[dict]) -> dict[str, float]:
         """
         Get hours summary grouped by project.
 
@@ -185,8 +185,8 @@ class TimeDocorTransformer:
         summary = {}
 
         for entry in entries:
-            project = entry['Project']
-            hours = entry['WORK HOUR']
+            project = entry["Project"]
+            hours = entry["WORK HOUR"]
 
             if project in summary:
                 summary[project] += hours
@@ -199,7 +199,7 @@ class TimeDocorTransformer:
         logger.info(f"Generated hours summary for {len(summary)} projects")
         return summary
 
-    def format_summary_text(self, summary: Dict[str, float]) -> str:
+    def format_summary_text(self, summary: dict[str, float]) -> str:
         """
         Format hours summary as readable text.
 
@@ -221,7 +221,7 @@ class TimeDocorTransformer:
         return "\n".join(lines)
 
 
-def export_to_csv(entries: List[Dict], output_file: str, include_total: bool = True) -> str:
+def export_to_csv(entries: list[dict], output_file: str, include_total: bool = True) -> str:
     """
     Convenience function to transform and export entries to CSV.
 
@@ -239,13 +239,13 @@ def export_to_csv(entries: List[Dict], output_file: str, include_total: bool = T
     transformed = transformer.transform_entries(entries)
 
     # Sort by date
-    transformed = transformer.sort_entries(transformed, sort_by='Date')
+    transformed = transformer.sort_entries(transformed, sort_by="Date")
 
     # Export to CSV
     return transformer.export_to_csv(transformed, output_file, include_total)
 
 
-def entries_to_csv_string(entries: List[Dict], include_total: bool = True) -> str:
+def entries_to_csv_string(entries: list[dict], include_total: bool = True) -> str:
     """
     Convert entries to CSV string format (for MCP server output).
 
@@ -264,11 +264,11 @@ def entries_to_csv_string(entries: List[Dict], include_total: bool = True) -> st
     transformed = transformer.transform_entries(entries)
 
     # Sort by date
-    transformed = transformer.sort_entries(transformed, sort_by='Date')
+    transformed = transformer.sort_entries(transformed, sort_by="Date")
 
     # Create CSV in memory
     output = io.StringIO()
-    fieldnames = ['Date', 'Project', 'Task', 'Description', 'WORK HOUR']
+    fieldnames = ["Date", "Project", "Task", "Description", "WORK HOUR"]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
 
     # Write header
@@ -282,18 +282,18 @@ def entries_to_csv_string(entries: List[Dict], include_total: bool = True) -> st
     if include_total and transformed:
         total_hours = transformer.calculate_total(transformed)
         total_row = {
-            'Date': 'TOTAL',
-            'Project': '',
-            'Task': '',
-            'Description': '',
-            'WORK HOUR': total_hours
+            "Date": "TOTAL",
+            "Project": "",
+            "Task": "",
+            "Description": "",
+            "WORK HOUR": total_hours,
         }
         writer.writerow(total_row)
 
     return output.getvalue()
 
 
-def get_hours_summary(entries: List[Dict]) -> Dict[str, float]:
+def get_hours_summary(entries: list[dict]) -> dict[str, float]:
     """
     Convenience function to get hours summary.
 
@@ -317,30 +317,30 @@ if __name__ == "__main__":
     # Sample data
     sample_entries = [
         {
-            'date': '2025-01-15',
-            'project': 'AYR',
-            'task': 'ABMS-202',
-            'description': 'Calendar Sync',
-            'seconds': 18000  # 5 hours
+            "date": "2025-01-15",
+            "project": "AYR",
+            "task": "ABMS-202",
+            "description": "Calendar Sync",
+            "seconds": 18000,  # 5 hours
         },
         {
-            'date': '2025-01-15',
-            'project': 'AYR',
-            'task': 'ABMS-3144',
-            'description': 'Outlook Calendar Sync - Integration',
-            'seconds': 3600  # 1 hour
+            "date": "2025-01-15",
+            "project": "AYR",
+            "task": "ABMS-3144",
+            "description": "Outlook Calendar Sync - Integration",
+            "seconds": 3600,  # 1 hour
         },
         {
-            'date': '2025-01-16',
-            'project': 'Project X',
-            'task': 'TASK-123',
-            'description': 'Development Work',
-            'seconds': 27000  # 7.5 hours
-        }
+            "date": "2025-01-16",
+            "project": "Project X",
+            "task": "TASK-123",
+            "description": "Development Work",
+            "seconds": 27000,  # 7.5 hours
+        },
     ]
 
     # Export to CSV
-    output_file = export_to_csv(sample_entries, 'test_report.csv')
+    output_file = export_to_csv(sample_entries, "test_report.csv")
     print(f"CSV exported to: {output_file}")
 
     # Get summary

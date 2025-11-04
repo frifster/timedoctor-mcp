@@ -5,32 +5,36 @@ Provides MCP tools for Time Doctor time tracking integration
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
 import os
 import sys
+from datetime import datetime, timedelta
+from typing import Any
 
-from mcp.server import Server
-from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 import mcp.server.stdio
+from mcp.server import Server
+from mcp.types import EmbeddedResource, ImageContent, TextContent, Tool
 
-from scraper import TimeDocorScraper
 from parser import TimeDocorParser
-from transformer import TimeDocorTransformer, export_to_csv, get_hours_summary, entries_to_csv_string
+from scraper import TimeDocorScraper
+from transformer import (
+    TimeDocorTransformer,
+    entries_to_csv_string,
+    get_hours_summary,
+)
 
 # Configure logging
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(script_dir)
-log_file = os.path.join(project_dir, 'timedoctor_mcp.log')
+log_file = os.path.join(project_dir, "timedoctor_mcp.log")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stderr)  # Use stderr for MCP
-    ]
+        logging.StreamHandler(sys.stderr),  # Use stderr for MCP
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -52,7 +56,7 @@ async def get_scraper() -> TimeDocorScraper:
 
 
 @app.list_tools()
-async def list_tools() -> List[Tool]:
+async def list_tools() -> list[Tool]:
     """List available MCP tools."""
     return [
         Tool(
@@ -66,8 +70,8 @@ async def list_tools() -> List[Tool]:
                         "description": "Date in YYYY-MM-DD format (e.g., 2025-01-15). Use 'today' for current date.",
                     }
                 },
-                "required": ["date"]
-            }
+                "required": ["date"],
+            },
         ),
         Tool(
             name="export_weekly_csv",
@@ -77,15 +81,15 @@ async def list_tools() -> List[Tool]:
                 "properties": {
                     "start_date": {
                         "type": "string",
-                        "description": "Start date in YYYY-MM-DD format (e.g., 2025-01-15). Can be any date."
+                        "description": "Start date in YYYY-MM-DD format (e.g., 2025-01-15). Can be any date.",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in YYYY-MM-DD format (e.g., 2025-01-21). Can be any date, any range length."
-                    }
+                        "description": "End date in YYYY-MM-DD format (e.g., 2025-01-21). Can be any date, any range length.",
+                    },
                 },
-                "required": ["start_date", "end_date"]
-            }
+                "required": ["start_date", "end_date"],
+            },
         ),
         Tool(
             name="get_hours_summary",
@@ -98,18 +102,14 @@ async def list_tools() -> List[Tool]:
                         "description": "Date in YYYY-MM-DD format (e.g., 2025-01-15). Use 'today' for current date.",
                     }
                 },
-                "required": ["date"]
-            }
+                "required": ["date"],
+            },
         ),
         Tool(
             name="export_today_csv",
             description="Get today's time tracking data in CSV format. Returns CSV data as text.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        )
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        ),
     ]
 
 
@@ -123,21 +123,23 @@ def normalize_date(date_str: str) -> str:
     Returns:
         str: Normalized date in YYYY-MM-DD format
     """
-    if date_str.lower() == 'today':
-        return datetime.now().strftime('%Y-%m-%d')
-    elif date_str.lower() == 'yesterday':
-        return (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    if date_str.lower() == "today":
+        return datetime.now().strftime("%Y-%m-%d")
+    elif date_str.lower() == "yesterday":
+        return (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     else:
         # Validate format
         try:
-            datetime.strptime(date_str, '%Y-%m-%d')
+            datetime.strptime(date_str, "%Y-%m-%d")
             return date_str
-        except ValueError:
-            raise ValueError(f"Invalid date format: {date_str}. Use YYYY-MM-DD format.")
+        except ValueError as e:
+            raise ValueError(f"Invalid date format: {date_str}. Use YYYY-MM-DD format.") from e
 
 
 @app.call_tool()
-async def call_tool(name: str, arguments: Any) -> List[TextContent | ImageContent | EmbeddedResource]:
+async def call_tool(
+    name: str, arguments: Any
+) -> list[TextContent | ImageContent | EmbeddedResource]:
     """Handle tool calls."""
     try:
         logger.info(f"Tool called: {name} with arguments: {arguments}")
@@ -162,11 +164,11 @@ async def call_tool(name: str, arguments: Any) -> List[TextContent | ImageConten
         return [TextContent(type="text", text=f"Error: {str(e)}")]
 
 
-async def handle_get_daily_report(arguments: Dict) -> List[TextContent]:
+async def handle_get_daily_report(arguments: dict) -> list[TextContent]:
     """Handle get_daily_report tool call."""
     try:
         # Normalize date
-        date = normalize_date(arguments['date'])
+        date = normalize_date(arguments["date"])
 
         logger.info(f"Getting daily report for {date}")
 
@@ -222,17 +224,17 @@ async def handle_get_daily_report(arguments: Dict) -> List[TextContent]:
         if td_scraper:
             try:
                 await td_scraper.close_browser()
-            except:
+            except Exception:
                 pass
         raise
 
 
-async def handle_export_weekly_csv(arguments: Dict) -> List[TextContent]:
+async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
     """Handle export_weekly_csv tool call - returns CSV data as text."""
     try:
         # Normalize dates
-        start_date = normalize_date(arguments['start_date'])
-        end_date = normalize_date(arguments['end_date'])
+        start_date = normalize_date(arguments["start_date"])
+        end_date = normalize_date(arguments["end_date"])
 
         logger.info(f"Getting date range report from {start_date} to {end_date} in SINGLE SESSION")
 
@@ -245,8 +247,8 @@ async def handle_export_weekly_csv(arguments: Dict) -> List[TextContent]:
         # Parse all HTMLs
         all_entries = []
         for report in all_reports:
-            date_str = report['date']
-            html = report['html']
+            date_str = report["date"]
+            html = report["html"]
 
             logger.info(f"Parsing data for {date_str}")
             entries = parser.parse_daily_report(html, date_str)
@@ -286,11 +288,11 @@ async def handle_export_weekly_csv(arguments: Dict) -> List[TextContent]:
         raise
 
 
-async def handle_get_hours_summary(arguments: Dict) -> List[TextContent]:
+async def handle_get_hours_summary(arguments: dict) -> list[TextContent]:
     """Handle get_hours_summary tool call."""
     try:
         # Normalize date
-        date = normalize_date(arguments['date'])
+        date = normalize_date(arguments["date"])
 
         logger.info(f"Getting hours summary for {date}")
 
@@ -335,15 +337,15 @@ async def handle_get_hours_summary(arguments: Dict) -> List[TextContent]:
         if td_scraper:
             try:
                 await td_scraper.close_browser()
-            except:
+            except Exception:
                 pass
         raise
 
 
-async def handle_export_today_csv(arguments: Dict) -> List[TextContent]:
+async def handle_export_today_csv(arguments: dict) -> list[TextContent]:
     """Handle export_today_csv tool call - returns CSV data as text."""
     try:
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now().strftime("%Y-%m-%d")
 
         logger.info(f"Getting today's report ({today})")
 
@@ -401,7 +403,7 @@ async def handle_export_today_csv(arguments: Dict) -> List[TextContent]:
         if td_scraper:
             try:
                 await td_scraper.close_browser()
-            except:
+            except Exception:
                 pass
         raise
 
@@ -413,11 +415,7 @@ async def main():
     try:
         # Run the server using stdin/stdout streams
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            await app.run(
-                read_stream,
-                write_stream,
-                app.create_initialization_options()
-            )
+            await app.run(read_stream, write_stream, app.create_initialization_options())
     except Exception as e:
         logger.error(f"Server error: {e}", exc_info=True)
         raise

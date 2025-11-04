@@ -3,27 +3,27 @@ Time Doctor Web Scraper
 Handles authentication and web scraping using Playwright
 """
 
-import os
 import logging
+import os
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List
 from pathlib import Path
-from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+
 from dotenv import load_dotenv
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 # Load environment variables from the project directory
 # Get the directory where this script is located
 script_dir = Path(__file__).parent
 project_dir = script_dir.parent
-env_path = project_dir / '.env'
+env_path = project_dir / ".env"
 
 # Load .env file from project directory
 load_dotenv(dotenv_path=env_path)
 
 # Configure logging
 logging.basicConfig(
-    level=getattr(logging, os.getenv('LOG_LEVEL', 'INFO')),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -36,15 +36,15 @@ class TimeDocorScraper:
 
     def __init__(self):
         """Initialize the Time Doctor scraper with configuration from environment."""
-        self.email = os.getenv('TD_EMAIL')
-        self.password = os.getenv('TD_PASSWORD')
-        self.base_url = os.getenv('TD_BASE_URL', 'https://2.timedoctor.com')
-        self.headless = os.getenv('HEADLESS', 'true').lower() == 'true'
-        self.timeout = int(os.getenv('BROWSER_TIMEOUT', '30000'))
+        self.email = os.getenv("TD_EMAIL")
+        self.password = os.getenv("TD_PASSWORD")
+        self.base_url = os.getenv("TD_BASE_URL", "https://2.timedoctor.com")
+        self.headless = os.getenv("HEADLESS", "true").lower() == "true"
+        self.timeout = int(os.getenv("BROWSER_TIMEOUT", "30000"))
 
-        self.browser: Optional[Browser] = None
-        self.context: Optional[BrowserContext] = None
-        self.page: Optional[Page] = None
+        self.browser: Browser | None = None
+        self.context: BrowserContext | None = None
+        self.page: Page | None = None
         self.playwright = None
 
         # Validate credentials
@@ -58,12 +58,11 @@ class TimeDocorScraper:
         try:
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(
-                headless=self.headless,
-                args=['--no-sandbox', '--disable-setuid-sandbox']
+                headless=self.headless, args=["--no-sandbox", "--disable-setuid-sandbox"]
             )
             self.context = await self.browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
             )
             self.page = await self.context.new_page()
             self.page.set_default_timeout(self.timeout)
@@ -99,7 +98,7 @@ class TimeDocorScraper:
 
             # Navigate to login page
             login_url = f"{self.base_url}/login"
-            await self.page.goto(login_url, wait_until='load', timeout=60000)
+            await self.page.goto(login_url, wait_until="load", timeout=60000)
             logger.debug(f"Navigated to {login_url}")
 
             # Wait for login form to load
@@ -119,7 +118,7 @@ class TimeDocorScraper:
 
             # Wait for navigation to complete after clicking login
             try:
-                async with self.page.expect_navigation(wait_until='load', timeout=30000):
+                async with self.page.expect_navigation(wait_until="load", timeout=30000):
                     await self.page.click('button[type="submit"]')
                 logger.debug("Navigation after login completed")
             except Exception as nav_error:
@@ -132,7 +131,7 @@ class TimeDocorScraper:
             logger.debug(f"Current URL after login attempt: {current_url}")
 
             # Check if login was successful (should redirect away from login page)
-            if '/login' not in current_url:
+            if "/login" not in current_url:
                 logger.info(f"Login successful - redirected to {current_url}")
                 return True
             else:
@@ -142,7 +141,7 @@ class TimeDocorScraper:
                     if error_elem:
                         error_text = await error_elem.inner_text()
                         logger.error(f"Login failed with error: {error_text}")
-                except:
+                except Exception:
                     pass
 
                 logger.error("Login failed - still on login page")
@@ -162,10 +161,9 @@ class TimeDocorScraper:
             target_date: Date in YYYY-MM-DD format
         """
         try:
-            from datetime import datetime, timedelta
-            import re
+            from datetime import datetime
 
-            target = datetime.strptime(target_date, '%Y-%m-%d')
+            target = datetime.strptime(target_date, "%Y-%m-%d")
             logger.info(f"Navigating to date: {target_date}")
 
             # Get current date displayed on page
@@ -180,7 +178,7 @@ class TimeDocorScraper:
 
             # Parse the date (format: "Nov 4, 2025")
             try:
-                current_date = datetime.strptime(current_date_text.strip(), '%b %d, %Y')
+                current_date = datetime.strptime(current_date_text.strip(), "%b %d, %Y")
             except ValueError:
                 logger.warning(f"Could not parse date from: {current_date_text}")
                 return
@@ -198,7 +196,9 @@ class TimeDocorScraper:
                 logger.info(f"Going back {days_diff} days")
                 for i in range(days_diff):
                     # Find left arrow button
-                    left_arrow = await self.page.query_selector('button.navigation-button:has(mat-icon:has-text("keyboard_arrow_left"))')
+                    left_arrow = await self.page.query_selector(
+                        'button.navigation-button:has(mat-icon:has-text("keyboard_arrow_left"))'
+                    )
 
                     if not left_arrow:
                         logger.warning(f"Could not find left arrow button on iteration {i+1}")
@@ -207,7 +207,7 @@ class TimeDocorScraper:
                     # Check if button is disabled
                     is_disabled = await left_arrow.is_disabled()
                     if is_disabled:
-                        logger.warning(f"Left arrow is disabled, cannot go further back")
+                        logger.warning("Left arrow is disabled, cannot go further back")
                         break
 
                     # Click the arrow
@@ -222,7 +222,9 @@ class TimeDocorScraper:
                 logger.info(f"Going forward {days_forward} days")
                 for i in range(days_forward):
                     # Find right arrow button
-                    right_arrow = await self.page.query_selector('button.navigation-button:has(mat-icon:has-text("keyboard_arrow_right"))')
+                    right_arrow = await self.page.query_selector(
+                        'button.navigation-button:has(mat-icon:has-text("keyboard_arrow_right"))'
+                    )
 
                     if not right_arrow:
                         logger.warning(f"Could not find right arrow button on iteration {i+1}")
@@ -231,7 +233,9 @@ class TimeDocorScraper:
                     # Check if button is disabled
                     is_disabled = await right_arrow.is_disabled()
                     if is_disabled:
-                        logger.warning(f"Right arrow is disabled, cannot go further forward (probably at today)")
+                        logger.warning(
+                            "Right arrow is disabled, cannot go further forward (probably at today)"
+                        )
                         break
 
                     # Click the arrow
@@ -268,7 +272,7 @@ class TimeDocorScraper:
             # Navigate to Projects & Tasks report if needed
             if navigate_to_report:
                 report_url = f"{self.base_url}/projects-report"
-                await self.page.goto(report_url, wait_until='load', timeout=60000)
+                await self.page.goto(report_url, wait_until="load", timeout=60000)
                 logger.debug(f"Navigated to {report_url}")
                 await self.page.wait_for_timeout(3000)
             else:
@@ -300,7 +304,7 @@ class TimeDocorScraper:
             logger.error(f"Error fetching daily report: {e}")
             raise
 
-    async def get_date_range_reports(self, start_date: str, end_date: str) -> List[Dict]:
+    async def get_date_range_reports(self, start_date: str, end_date: str) -> list[dict]:
         """
         Get reports for a date range in a single browser session.
         Stays logged in and navigates between dates efficiently.
@@ -315,8 +319,8 @@ class TimeDocorScraper:
         try:
             logger.info(f"Fetching date range reports from {start_date} to {end_date}")
 
-            start = datetime.strptime(start_date, '%Y-%m-%d')
-            end = datetime.strptime(end_date, '%Y-%m-%d')
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
 
             reports = []
             current_date = start
@@ -325,19 +329,15 @@ class TimeDocorScraper:
             first_iteration = True
 
             while current_date <= end:
-                date_str = current_date.strftime('%Y-%m-%d')
+                date_str = current_date.strftime("%Y-%m-%d")
 
                 # Only navigate to report page on first iteration
                 # After that, stay on the page and just change dates
                 html = await self.get_daily_report_html(
-                    date_str,
-                    navigate_to_report=first_iteration
+                    date_str, navigate_to_report=first_iteration
                 )
 
-                reports.append({
-                    'date': date_str,
-                    'html': html
-                })
+                reports.append({"date": date_str, "html": html})
 
                 first_iteration = False
                 current_date += timedelta(days=1)
@@ -349,7 +349,7 @@ class TimeDocorScraper:
             logger.error(f"Error fetching date range reports: {e}")
             raise
 
-    async def get_weekly_report_html(self, start_date: str, end_date: str) -> List[str]:
+    async def get_weekly_report_html(self, start_date: str, end_date: str) -> list[str]:
         """
         Get HTML content for a date range (weekly report).
         Legacy method - use get_date_range_reports instead.
@@ -363,13 +363,13 @@ class TimeDocorScraper:
         """
         try:
             reports = await self.get_date_range_reports(start_date, end_date)
-            return [r['html'] for r in reports]
+            return [r["html"] for r in reports]
 
         except Exception as e:
             logger.error(f"Error fetching weekly report: {e}")
             raise
 
-    async def get_report_data(self, date: str) -> Dict:
+    async def get_report_data(self, date: str) -> dict:
         """
         Get structured report data for a specific date.
         This is a convenience method that handles browser lifecycle.
@@ -391,16 +391,14 @@ class TimeDocorScraper:
             # Get report HTML
             html_content = await self.get_daily_report_html(date)
 
-            return {
-                'date': date,
-                'html': html_content,
-                'success': True
-            }
+            return {"date": date, "html": html_content, "success": True}
 
         finally:
             await self.close_browser()
 
-    async def get_date_range_data_single_session(self, start_date: str, end_date: str) -> List[Dict]:
+    async def get_date_range_data_single_session(
+        self, start_date: str, end_date: str
+    ) -> list[dict]:
         """
         Get structured report data for a date range in a SINGLE browser session.
         Login once, navigate through all dates, then close.
@@ -429,7 +427,7 @@ class TimeDocorScraper:
 
             # Add success flag
             for report in reports:
-                report['success'] = True
+                report["success"] = True
 
             logger.info(f"Completed single session: {len(reports)} days retrieved")
             return reports
@@ -442,7 +440,7 @@ class TimeDocorScraper:
             # Always close browser
             await self.close_browser()
 
-    async def get_weekly_data(self, start_date: str, end_date: str) -> List[Dict]:
+    async def get_weekly_data(self, start_date: str, end_date: str) -> list[dict]:
         """
         Get structured report data for a date range.
         This is a convenience method that handles browser lifecycle.
@@ -472,7 +470,7 @@ if __name__ == "__main__":
         scraper = TimeDocorScraper()
 
         # Get today's report
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now().strftime("%Y-%m-%d")
         data = await scraper.get_report_data(today)
 
         print(f"Report fetched successfully: {data['success']}")

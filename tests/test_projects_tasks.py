@@ -4,7 +4,7 @@ Test accessing Projects & Tasks report directly
 
 import asyncio
 import os
-from datetime import datetime
+
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
@@ -14,8 +14,8 @@ load_dotenv()
 async def test_projects_tasks():
     """Test accessing Projects & Tasks report."""
 
-    email = os.getenv('TD_EMAIL')
-    password = os.getenv('TD_PASSWORD')
+    email = os.getenv("TD_EMAIL")
+    password = os.getenv("TD_PASSWORD")
 
     print("═" * 70)
     print("Testing Projects & Tasks Report")
@@ -29,21 +29,16 @@ async def test_projects_tasks():
         playwright = await async_playwright().start()
 
         print("Starting browser...")
-        browser = await playwright.chromium.launch(
-            headless=False,
-            args=['--no-sandbox']
-        )
+        browser = await playwright.chromium.launch(headless=False, args=["--no-sandbox"])
 
-        context = await browser.new_context(
-            viewport={'width': 1920, 'height': 1080}
-        )
+        context = await browser.new_context(viewport={"width": 1920, "height": 1080})
 
         page = await context.new_page()
         page.set_default_timeout(60000)
 
         # Login
         print("Logging in...")
-        await page.goto("https://2.timedoctor.com/login", wait_until='load')
+        await page.goto("https://2.timedoctor.com/login", wait_until="load")
         await page.wait_for_timeout(2000)
 
         await page.fill('input[type="email"]', email)
@@ -66,7 +61,7 @@ async def test_projects_tasks():
         for url in possible_urls:
             print(f"  Trying: {url}")
             try:
-                response = await page.goto(url, wait_until='load', timeout=10000)
+                response = await page.goto(url, wait_until="load", timeout=10000)
                 await page.wait_for_timeout(2000)
 
                 if response.status == 200:
@@ -79,7 +74,7 @@ async def test_projects_tasks():
                 print(f"  ❌ Failed: {str(e)[:50]}")
 
         print()
-        await page.screenshot(path='projects_tasks_page.png')
+        await page.screenshot(path="projects_tasks_page.png")
         print("📸 Screenshot: projects_tasks_page.png")
         print()
 
@@ -87,20 +82,20 @@ async def test_projects_tasks():
         print("Looking for data on page...")
 
         # Check for tables
-        tables = await page.query_selector_all('table')
+        tables = await page.query_selector_all("table")
         print(f"  Found {len(tables)} tables")
 
         if tables:
             # Try to get first table's content
             first_table = tables[0]
-            rows = await first_table.query_selector_all('tr')
+            rows = await first_table.query_selector_all("tr")
             print(f"  First table has {len(rows)} rows")
 
             if rows and len(rows) > 0:
                 print()
                 print("  Sample data from first few rows:")
                 for i, row in enumerate(rows[:5]):
-                    cells = await row.query_selector_all('td, th')
+                    cells = await row.query_selector_all("td, th")
                     cell_texts = []
                     for cell in cells:
                         text = await cell.inner_text()
@@ -120,7 +115,9 @@ async def test_projects_tasks():
         print(f"  Found {len(task_elems)} task-related elements")
 
         # Look for time data
-        time_elems = await page.query_selector_all('[class*="time"], [class*="duration"], [class*="hour"]')
+        time_elems = await page.query_selector_all(
+            '[class*="time"], [class*="duration"], [class*="hour"]'
+        )
         print(f"  Found {len(time_elems)} time-related elements")
 
         print()
@@ -130,7 +127,7 @@ async def test_projects_tasks():
             print(f"  {i} seconds...")
             await asyncio.sleep(5)
 
-        await page.screenshot(path='projects_tasks_final.png')
+        await page.screenshot(path="projects_tasks_final.png")
         print()
         print("📸 Final screenshot: projects_tasks_final.png")
         print(f"   Final URL: {page.url}")
@@ -138,6 +135,7 @@ async def test_projects_tasks():
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
     finally:
