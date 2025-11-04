@@ -1,12 +1,18 @@
 # Time Doctor MCP
 
-**MCP Server** for extracting Time Doctor time tracking data via Claude AI.
+**MCP Server** for extracting Time Doctor time tracking data via AI assistants.
 
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/frifster)
 
 ## What It Does
 
-Fetches time tracking reports from Time Doctor and returns them as CSV data. Integrates directly with Claude Desktop/Code as an MCP server.
+Fetches time tracking reports from Time Doctor and returns them as CSV data. Integrates with AI assistants via the Model Context Protocol (MCP).
+
+**Supports:**
+- 🤖 Claude Desktop & Claude Code
+- 🎯 Cursor IDE
+- ✨ Google Gemini CLI
+- 💻 VS Code with GitHub Copilot
 
 **Features:**
 - 🚀 Single-session scraping (login once, get multiple dates)
@@ -106,6 +112,141 @@ Add this configuration (replace `<PATH_TO_REPO>` with your actual path):
 ### 4. Restart Claude
 
 Completely quit and reopen Claude Desktop/Code.
+
+## Alternative MCP Clients
+
+This MCP server also works with other AI assistants that support the Model Context Protocol:
+
+### Cursor IDE
+
+Edit your Cursor MCP configuration file:
+
+**macOS/Linux:**
+```bash
+nano ~/.cursor/mcp.json
+```
+
+**Windows:**
+```bash
+notepad %USERPROFILE%\.cursor\mcp.json
+```
+
+Add this configuration:
+```json
+{
+  "mcpServers": {
+    "timedoctor": {
+      "command": "<PATH_TO_REPO>/.venv/bin/python",
+      "args": ["<PATH_TO_REPO>/src/mcp_server.py"],
+      "env": {
+        "TD_EMAIL": "your-email@example.com",
+        "TD_PASSWORD": "your-password",
+        "TD_BASE_URL": "https://2.timedoctor.com",
+        "HEADLESS": "true"
+      }
+    }
+  }
+}
+```
+
+**Note:** You can also create a project-specific configuration at `.cursor/mcp.json` in your project root.
+
+**Restart Cursor** after saving the configuration.
+
+### Google Gemini CLI
+
+Edit your Gemini CLI settings:
+
+**macOS/Linux:**
+```bash
+nano ~/.gemini/settings.json
+```
+
+**Windows:**
+```bash
+notepad %USERPROFILE%\.gemini\settings.json
+```
+
+Add this configuration:
+```json
+{
+  "mcpServers": {
+    "timedoctor": {
+      "command": "<PATH_TO_REPO>/.venv/bin/python",
+      "args": ["<PATH_TO_REPO>/src/mcp_server.py"],
+      "env": {
+        "TD_EMAIL": "your-email@example.com",
+        "TD_PASSWORD": "your-password",
+        "TD_BASE_URL": "https://2.timedoctor.com",
+        "HEADLESS": "true"
+      },
+      "timeout": 600000
+    }
+  }
+}
+```
+
+**Optional settings:**
+- `timeout`: Request timeout in milliseconds (default: 600,000ms)
+- `trust`: Set to `true` to skip tool confirmations
+
+**Restart Gemini CLI** after saving the configuration.
+
+### VS Code / GitHub Copilot
+
+Create or edit the MCP configuration file:
+
+**Workspace-specific (recommended):**
+```bash
+mkdir -p .vscode
+nano .vscode/mcp.json
+```
+
+**User-wide (all workspaces):**
+- macOS: `~/Library/Application Support/Code/User/mcp.json`
+- Linux: `~/.config/Code/User/mcp.json`
+- Windows: `%APPDATA%\Code\User\mcp.json`
+
+Add this configuration:
+```json
+{
+  "servers": {
+    "timedoctor": {
+      "type": "stdio",
+      "command": "<PATH_TO_REPO>/.venv/bin/python",
+      "args": ["<PATH_TO_REPO>/src/mcp_server.py"],
+      "env": {
+        "TD_EMAIL": "your-email@example.com",
+        "TD_PASSWORD": "your-password",
+        "TD_BASE_URL": "https://2.timedoctor.com",
+        "HEADLESS": "true"
+      }
+    }
+  }
+}
+```
+
+**Using .env file (more secure):**
+```json
+{
+  "servers": {
+    "timedoctor": {
+      "type": "stdio",
+      "command": "<PATH_TO_REPO>/.venv/bin/python",
+      "args": ["<PATH_TO_REPO>/src/mcp_server.py"],
+      "envFile": "<PATH_TO_REPO>/.env"
+    }
+  }
+}
+```
+
+**Enable in GitHub Copilot:**
+1. Open VS Code Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
+2. Run **MCP: Add Server** to configure via UI
+3. Or manually edit `.vscode/mcp.json` as shown above
+4. In Copilot Chat, click the tools icon to see available MCP servers
+
+**Restart VS Code** after saving the configuration.
 
 ## Usage
 
