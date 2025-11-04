@@ -1,40 +1,45 @@
-# Time Doctor Scraper
+# Time Doctor MCP
 
-**Production Ready MCP Server** for extracting Time Doctor time tracking data via Claude AI.
+**MCP Server** for extracting Time Doctor time tracking data via Claude AI.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/frifster)
 
 ## What It Does
 
-Fetches time tracking reports from Time Doctor and returns them as CSV data. Integrates directly with Claude Code as an MCP server.
+Fetches time tracking reports from Time Doctor and returns them as CSV data. Integrates directly with Claude Desktop/Code as an MCP server.
 
 **Features:**
-- Single-session scraping (login once, get multiple dates)
-- Works with any date range (1 day to 365+ days)
-- Returns CSV data as text (no file writing issues)
-- Parses Time Doctor's "3h 50m" format
-- Aggregates duplicate tasks
-- Includes TOTAL row
+- 🚀 Single-session scraping (login once, get multiple dates)
+- 📅 Works with any date range (1 day to 365+ days)
+- 📊 Returns CSV data as text (no file system issues)
+- ⏱️ Parses Time Doctor's "3h 50m" format
+- 📦 Aggregates duplicate tasks
+- ✅ Includes TOTAL row
 
 ## Quick Setup
 
-### 1. Install Dependencies
+### 1. Clone & Install
 
 ```bash
-# Install UV (fastest)
+# Clone the repository
+git clone https://github.com/frifster/timedoctor-mcp.git
+cd timedoctor-mcp
+
+# Install UV (fastest method)
 brew install uv
 
-# Setup
-cd /Users/apple/tdoctorscraper
+# Run setup
 ./setup-with-uv.sh
 ```
 
 ### 2. Configure Credentials
 
-Create `.env`:
+Create `.env` in the project root:
 ```bash
 nano .env
 ```
 
-Add:
+Add your Time Doctor credentials:
 ```env
 TD_EMAIL=your-email@example.com
 TD_PASSWORD=your-password
@@ -42,23 +47,34 @@ TD_BASE_URL=https://2.timedoctor.com
 HEADLESS=true
 ```
 
-### 3. Add to Claude Code
+### 3. Add to Claude Desktop/Code
 
-**Option A: MCP Config in JSON**
+Edit your Claude MCP configuration:
 
-Edit config:
+**macOS:**
 ```bash
-# macOS
 open ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
 
-Add:
+**Windows:**
+```bash
+notepad %APPDATA%\Claude\claude_desktop_config.json
+```
+
+**Linux:**
+```bash
+nano ~/.config/Claude/claude_desktop_config.json
+```
+
+Add this configuration (replace `<PATH_TO_REPO>` with your actual path):
+
+**Option A: Credentials in JSON**
 ```json
 {
   "mcpServers": {
     "timedoctor": {
-      "command": "/Users/apple/tdoctorscraper/.venv/bin/python",
-      "args": ["/Users/apple/tdoctorscraper/src/mcp_server.py"],
+      "command": "<PATH_TO_REPO>/.venv/bin/python",
+      "args": ["<PATH_TO_REPO>/src/mcp_server.py"],
       "env": {
         "TD_EMAIL": "your-email@example.com",
         "TD_PASSWORD": "your-password",
@@ -70,24 +86,28 @@ Add:
 }
 ```
 
-**Option B: Let It Load from .env**
-
+**Option B: Load from .env (Recommended)**
 ```json
 {
   "mcpServers": {
     "timedoctor": {
-      "command": "/Users/apple/tdoctorscraper/.venv/bin/python",
-      "args": ["/Users/apple/tdoctorscraper/src/mcp_server.py"]
+      "command": "<PATH_TO_REPO>/.venv/bin/python",
+      "args": ["<PATH_TO_REPO>/src/mcp_server.py"]
     }
   }
 }
 ```
 
-### 4. Restart Claude Code
+**Example paths:**
+- macOS: `/Users/yourname/timedoctor-mcp/.venv/bin/python`
+- Linux: `/home/yourname/timedoctor-mcp/.venv/bin/python`
+- Windows: `C:\Users\yourname\timedoctor-mcp\.venv\Scripts\python.exe`
 
-Completely quit and reopen.
+### 4. Restart Claude
 
-## Usage in Claude
+Completely quit and reopen Claude Desktop/Code.
+
+## Usage
 
 **Get data for date range:**
 ```
@@ -119,7 +139,7 @@ TOTAL,,,,8.50
 
 You can then ask Claude to save it wherever you want!
 
-## MCP Tools Available
+## MCP Tools
 
 ### 1. `export_weekly_csv`
 Get time tracking data for any date range in CSV format.
@@ -187,8 +207,9 @@ TOTAL,,,,2.72
 ## Project Structure
 
 ```
-tdoctorscraper/
+timedoctor-mcp/
 ├── .env                    # Your credentials (git-ignored)
+├── .env.example            # Example configuration
 ├── requirements.txt        # Python dependencies
 ├── setup-with-uv.sh       # Setup script
 └── src/
@@ -204,12 +225,12 @@ tdoctorscraper/
 
 Check the log:
 ```bash
-tail -f /Users/apple/tdoctorscraper/timedoctor_mcp.log
+tail -f timedoctor_mcp.log
 ```
 
 Common issues:
 - ❌ **Missing credentials:** Add to `.env` or MCP config
-- ❌ **Wrong Python path:** Use `.venv/bin/python` not system Python
+- ❌ **Wrong Python path:** Use `.venv/bin/python` (or `.venv/Scripts/python.exe` on Windows)
 - ❌ **Dependencies not installed:** Run `./setup-with-uv.sh`
 
 ### Login Fails
@@ -225,7 +246,7 @@ Login failed - still on login page
 - Try logging in manually at https://2.timedoctor.com/login
 - Look for error messages in the log
 
-**The scraper now logs which email it's using:**
+**The scraper logs which email it's using:**
 ```
 TimeDocorScraper initialized with email: your-email@example.com
 ```
@@ -243,19 +264,33 @@ Parsed 0 time entries
 - Try with today's date first to confirm it works
 - Check log for HTML parsing errors
 
-### Claude Code Not Seeing Tools
+### Claude Not Seeing Tools
 
 **Solutions:**
-1. Verify config path: `~/Library/Application Support/Claude/claude_desktop_config.json`
-2. Check JSON syntax is valid
-3. Completely quit and restart Claude Code
-4. Check Claude Code settings → MCP Servers
+1. Verify config path is correct
+2. Check JSON syntax is valid (use a JSON validator)
+3. Ensure Python path is absolute, not relative
+4. Completely quit and restart Claude
+5. Check Claude settings → MCP Servers
+
+### Path Issues
+
+Make sure all paths in your MCP config are **absolute paths**, not relative:
+
+✅ **Good:**
+- macOS/Linux: `/Users/name/timedoctor-mcp/.venv/bin/python`
+- Windows: `C:\Users\name\timedoctor-mcp\.venv\Scripts\python.exe`
+
+❌ **Bad:**
+- `~/timedoctor-mcp/.venv/bin/python` (tilde not expanded)
+- `./timedoctor-mcp/.venv/bin/python` (relative path)
+- `timedoctor-mcp/.venv/bin/python` (relative path)
 
 ## Requirements
 
 - **Python:** 3.12 or 3.13 (3.14 not supported yet)
 - **Dependencies:** Playwright, BeautifulSoup4, MCP SDK, python-dotenv
-- **System:** macOS (tested), Linux, Windows (should work)
+- **System:** macOS, Linux, Windows
 - **Time Doctor:** Active account with login credentials
 
 ## Performance
@@ -272,13 +307,13 @@ Parsed 0 time entries
 - ✅ Headless browser (no GUI)
 - ✅ Local execution only
 - ✅ No data sent to third parties
-- ⚠️ Store `.env` securely (chmod 600 recommended)
+- ⚠️ Store `.env` securely (`chmod 600 .env` recommended)
 
 ## Development
 
 **Test login:**
 ```bash
-source .venv/bin/activate
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 python debug_login.py
 ```
 
@@ -299,7 +334,7 @@ tail -f timedoctor_mcp.log
 
 ## Why Web Scraping?
 
-Time Doctor has an API, but this scraper uses web automation because:
+Time Doctor has an API, but this MCP server uses web automation because:
 - ✅ No API token setup needed
 - ✅ Same access as web interface
 - ✅ Works with all Time Doctor plans
@@ -307,22 +342,51 @@ Time Doctor has an API, but this scraper uses web automation because:
 
 If you prefer API access, Time Doctor's API is available at: `https://api2.timedoctor.com/api/1.0/`
 
+## Alternative Installation Methods
+
+### Manual pip Installation
+
+```bash
+# Create virtual environment
+python3.13 -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install Playwright browsers
+playwright install chromium
+```
+
+### Using Python venv (without UV)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+```
+
+## Contributing
+
+Contributions welcome! Please feel free to submit issues or pull requests.
+
 ## License
 
-MIT License - Use freely for personal automation.
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-For personal use only. Ensure compliance with Time Doctor's Terms of Service and your organization's policies.
-
----
-
-**Questions?** Check the log file: `/Users/apple/tdoctorscraper/timedoctor_mcp.log`
-
-**Working?** Ask Claude: "Get my Time Doctor data for today"
+This tool is for personal use and automation of your own Time Doctor data. Ensure you comply with Time Doctor's Terms of Service and your organization's policies when using this scraper.
 
 ## Support
 
 If this tool saves you time, consider buying me a coffee! ☕
 
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-yellow?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/frifster)
+
+---
+
+**Questions?** Check the log file: `timedoctor_mcp.log` in the project directory
+
+**Working?** Ask Claude: "Get my Time Doctor data for today"
