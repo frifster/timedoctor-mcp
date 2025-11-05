@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2025-11-05
 
+### Fixed
+- **Load State Detection**: Changed from `networkidle` to `domcontentloaded` for all page wait operations
+  - Time Doctor pages have continuous background network activity that prevents networkidle state
+  - `domcontentloaded` is more appropriate for modern web apps with analytics/tracking
+  - Fixes timeout errors during login and navigation
+  - Login now completes in ~4 seconds instead of timing out
+
 ### Added
 
 #### Performance Improvements
