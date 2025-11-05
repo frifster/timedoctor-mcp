@@ -88,7 +88,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="export_weekly_csv",
-            description="Get time tracking data for a date range in CSV or JSON format. Maximum 15 days per request. For longer periods, split into multiple requests (e.g., 30 days = 2 requests of 15 days each). Returns data as text that you can save or analyze. Supports parallel scraping for faster retrieval.",
+            description="Get time tracking data for a date range in CSV or JSON format. Maximum 7 days per request (one week). For longer periods, split into multiple requests (e.g., 30 days = 5 weekly requests). Returns data as text that you can save or analyze. Supports parallel scraping for faster retrieval.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -98,7 +98,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in YYYY-MM-DD format (e.g., 2025-01-21). Maximum 15 days from start_date.",
+                        "description": "End date in YYYY-MM-DD format (e.g., 2025-01-21). Maximum 7 days from start_date.",
                     },
                     "format": {
                         "type": "string",
@@ -274,22 +274,22 @@ async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
         parallel_mode = arguments.get("parallel", "auto").lower()
         min_hours = float(arguments.get("min_hours", 0.1))
 
-        # Validate date range (max 15 days)
+        # Validate date range (max 7 days)
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
         days_diff = (end_dt - start_dt).days + 1  # +1 to include both start and end dates
 
-        if days_diff > 15:
+        if days_diff > 7:
             error_msg = (
-                f"Date range too large: {days_diff} days (max 15 days allowed).\n\n"
+                f"Date range too large: {days_diff} days (max 7 days allowed).\n\n"
                 f"To get {days_diff} days of data, please split into multiple requests:\n"
             )
             # Suggest how to split the request
-            num_requests = (days_diff + 14) // 15  # Round up
+            num_requests = (days_diff + 6) // 7  # Round up
             suggestions = []
             current_start = start_dt
             for i in range(num_requests):
-                chunk_end = min(current_start + timedelta(days=14), end_dt)
+                chunk_end = min(current_start + timedelta(days=6), end_dt)
                 suggestions.append(
                     f"  {i+1}. {current_start.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')} ({(chunk_end - current_start).days + 1} days)"
                 )

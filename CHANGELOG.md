@@ -5,7 +5,36 @@ All notable changes to Time Doctor MCP will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2025-11-05
+
+### Changed
+- **Reduced Maximum Limit from 15 to 7 Days**: Date range requests now limited to maximum 7 days per request
+  - Prevents Claude Desktop timeout issues (60-second tool execution limit)
+  - Testing showed 15-day requests timing out after 35 seconds
+  - 7-day limit ensures reliable completion within Claude Desktop constraints
+  - Example: 30-day request now suggests 5 × 7-day requests instead of 2 × 15-day requests
+  - AI agents will naturally split larger requests into weekly chunks
+
+### Benefits
+- **Reliable with Claude Desktop**: All requests complete within 60-second timeout
+- **Better UX**: No more timeout errors for large date ranges
+- **Agent-Friendly**: Weekly chunks are intuitive and reliable
+
+### Example Error Message
+```
+Date range too large: 30 days (max 7 days allowed).
+
+To get 30 days of data, please split into multiple requests:
+  1. 2025-10-01 to 2025-10-07 (7 days)
+  2. 2025-10-08 to 2025-10-14 (7 days)
+  3. 2025-10-15 to 2025-10-21 (7 days)
+  4. 2025-10-22 to 2025-10-28 (7 days)
+  5. 2025-10-29 to 2025-10-30 (2 days)
+```
+
 ## [1.2.2] - 2025-11-05
+
+**Note**: This version introduced a 15-day limit, but was superseded by v1.2.3 which reduced the limit to 7 days for better Claude Desktop compatibility.
 
 ### Added
 - **15-Day Maximum Limit**: Date range requests now limited to maximum 15 days per request
