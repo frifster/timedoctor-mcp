@@ -172,8 +172,9 @@ class TimeDocorScraper:
             await self.page.goto(login_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT_MS)
             logger.debug(f"Navigated to {login_url}")
 
-            # Wait for login form to load
-            await self.page.wait_for_load_state("networkidle", timeout=LOGIN_FORM_LOAD_WAIT_MS)
+            # Wait for login form to load - use domcontentloaded instead of networkidle
+            # because Time Doctor has continuous background network activity
+            await self.page.wait_for_load_state("domcontentloaded", timeout=LOGIN_FORM_LOAD_WAIT_MS)
             await self.page.wait_for_selector(
                 'input[type="email"]', timeout=EMAIL_SELECTOR_TIMEOUT_MS
             )
@@ -199,8 +200,8 @@ class TimeDocorScraper:
             except Exception as nav_error:
                 logger.warning(f"Navigation wait failed: {nav_error}, checking URL anyway...")
 
-            # Wait for post-login processing
-            await self.page.wait_for_load_state("networkidle", timeout=POST_LOGIN_WAIT_MS)
+            # Wait for post-login processing - use domcontentloaded for stability
+            await self.page.wait_for_load_state("domcontentloaded", timeout=POST_LOGIN_WAIT_MS)
 
             current_url = self.page.url
             logger.debug(f"Current URL after login attempt: {current_url}")
@@ -291,7 +292,7 @@ class TimeDocorScraper:
 
                     # Wait for page to update
                     await self.page.wait_for_load_state(
-                        "networkidle", timeout=DATE_NAVIGATION_WAIT_MS
+                        "domcontentloaded", timeout=DATE_NAVIGATION_WAIT_MS
                     )
             else:
                 # Need to go forward in time (click right arrow)
@@ -321,7 +322,7 @@ class TimeDocorScraper:
 
                     # Wait for page to update
                     await self.page.wait_for_load_state(
-                        "networkidle", timeout=DATE_NAVIGATION_WAIT_MS
+                        "domcontentloaded", timeout=DATE_NAVIGATION_WAIT_MS
                     )
 
             # Verify we reached the target date
@@ -368,7 +369,7 @@ class TimeDocorScraper:
                 report_url = f"{self.base_url}/projects-report"
                 await self.page.goto(report_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT_MS)
                 logger.debug(f"Navigated to {report_url}")
-                await self.page.wait_for_load_state("networkidle", timeout=REPORT_PAGE_LOAD_WAIT_MS)
+                await self.page.wait_for_load_state("domcontentloaded", timeout=REPORT_PAGE_LOAD_WAIT_MS)
             else:
                 logger.debug("Already on report page, skipping navigation")
 
@@ -381,7 +382,7 @@ class TimeDocorScraper:
                 if expand_button:
                     await expand_button.click()
                     logger.debug("Clicked Expand All button")
-                    await self.page.wait_for_load_state("networkidle", timeout=EXPAND_ALL_WAIT_MS)
+                    await self.page.wait_for_load_state("domcontentloaded", timeout=EXPAND_ALL_WAIT_MS)
             except Exception as e:
                 logger.warning(f"Could not click Expand All: {e}")
 
