@@ -32,3 +32,7 @@ MAX_RETRY_ATTEMPTS = 3
 RETRY_MIN_WAIT_SECONDS = 1
 RETRY_MAX_WAIT_SECONDS = 10
 RETRY_MULTIPLIER = 2  # Exponential backoff multiplier
+
+# Parallel Scraping Configuration
+MAX_PARALLEL_SESSIONS = 5  # Maximum number of parallel browser contexts
+PARALLEL_THRESHOLD = 3  # Use parallel scraping if date count >= this value

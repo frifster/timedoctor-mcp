@@ -3,6 +3,7 @@ Time Doctor Web Scraper
 Handles authentication and web scraping using Playwright
 """
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timedelta
@@ -31,8 +32,10 @@ try:
         EXPAND_ALL_WAIT_MS,
         LOGIN_FORM_LOAD_WAIT_MS,
         LOGIN_NAVIGATION_TIMEOUT_MS,
+        MAX_PARALLEL_SESSIONS,
         MAX_RETRY_ATTEMPTS,
         PAGE_LOAD_TIMEOUT_MS,
+        PARALLEL_THRESHOLD,
         POST_LOGIN_WAIT_MS,
         REPORT_PAGE_LOAD_WAIT_MS,
         RETRY_MAX_WAIT_SECONDS,
@@ -52,8 +55,10 @@ except ImportError:
         EXPAND_ALL_WAIT_MS,
         LOGIN_FORM_LOAD_WAIT_MS,
         LOGIN_NAVIGATION_TIMEOUT_MS,
+        MAX_PARALLEL_SESSIONS,
         MAX_RETRY_ATTEMPTS,
         PAGE_LOAD_TIMEOUT_MS,
+        PARALLEL_THRESHOLD,
         POST_LOGIN_WAIT_MS,
         REPORT_PAGE_LOAD_WAIT_MS,
         RETRY_MAX_WAIT_SECONDS,
@@ -290,10 +295,8 @@ class TimeDocorScraper:
                     await left_arrow.click()
                     logger.debug(f"Clicked left arrow ({i + 1}/{days_diff})")
 
-                    # Wait for page to update
-                    await self.page.wait_for_load_state(
-                        "domcontentloaded", timeout=DATE_NAVIGATION_WAIT_MS
-                    )
+                    # Wait for page to update (fixed wait works better for date navigation)
+                    await self.page.wait_for_timeout(1500)
             else:
                 # Need to go forward in time (click right arrow)
                 days_forward = abs(days_diff)
@@ -320,10 +323,8 @@ class TimeDocorScraper:
                     await right_arrow.click()
                     logger.debug(f"Clicked right arrow ({i + 1}/{days_forward})")
 
-                    # Wait for page to update
-                    await self.page.wait_for_load_state(
-                        "domcontentloaded", timeout=DATE_NAVIGATION_WAIT_MS
-                    )
+                    # Wait for page to update (fixed wait works better for date navigation)
+                    await self.page.wait_for_timeout(1500)
 
             # Verify we reached the target date
             date_button = await self.page.query_selector('button:has-text(", 20")')
@@ -370,24 +371,37 @@ class TimeDocorScraper:
                 await self.page.goto(report_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT_MS)
                 logger.debug(f"Navigated to {report_url}")
                 await self.page.wait_for_load_state("domcontentloaded", timeout=REPORT_PAGE_LOAD_WAIT_MS)
+                # Wait for date navigation buttons to appear before trying to navigate
+                await self.page.wait_for_timeout(2000)
             else:
                 logger.debug("Already on report page, skipping navigation")
 
             # Navigate to specific date
             await self.navigate_to_date(date)
 
+            # Wait for the Angular app to render - look for "Time Tracked" column header
+            try:
+                await self.page.wait_for_selector(
+                    'text=Time Tracked', timeout=10000
+                )
+                logger.debug("Time Tracked header found - page rendered")
+                # Give Angular a moment to finish rendering
+                await self.page.wait_for_timeout(2000)
+            except Exception as e:
+                logger.warning(f"Time Tracked header not found: {e}")
+
             # Click "Expand All" button to show all tasks
             try:
-                expand_button = await self.page.query_selector('button:has-text("Expand All")')
+                expand_button = await self.page.wait_for_selector(
+                    'button:has-text("Expand All")', timeout=5000
+                )
                 if expand_button:
                     await expand_button.click()
                     logger.debug("Clicked Expand All button")
-                    await self.page.wait_for_load_state("domcontentloaded", timeout=EXPAND_ALL_WAIT_MS)
+                    # Wait for expansion to complete
+                    await self.page.wait_for_timeout(2000)
             except Exception as e:
                 logger.warning(f"Could not click Expand All: {e}")
-
-            # Wait for content to fully load
-            await self.page.wait_for_load_state("domcontentloaded", timeout=CONTENT_LOAD_WAIT_MS)
 
             # Get page HTML
             html_content = await self.page.content()
@@ -446,6 +460,236 @@ class TimeDocorScraper:
 
         except Exception as e:
             logger.error(f"Error fetching date range reports: {e}")
+            raise
+
+    async def _scrape_single_date_in_context(
+        self, context: BrowserContext, date: str
+    ) -> dict[str, str]:
+        """
+        Helper method to scrape a single date using a specific browser context.
+        Each context gets its own page and login session.
+
+        Args:
+            context: Browser context to use
+            date: Date in YYYY-MM-DD format
+
+        Returns:
+            Dict with 'date' and 'html' keys
+        """
+        page = None
+        try:
+            # Create a new page in this context
+            page = await context.new_page()
+            page.set_default_timeout(self.timeout)
+
+            # Check cache first
+            if self.use_cache:
+                cached_html = self.cache.get(date)
+                if cached_html:
+                    logger.info(f"[{date}] Using cached report")
+                    return {"date": date, "html": cached_html}
+
+            logger.info(f"[{date}] Starting parallel scrape")
+
+            # Login for this context
+            await page.goto(f"{self.base_url}/login", timeout=PAGE_LOAD_TIMEOUT_MS)
+            await page.wait_for_load_state("domcontentloaded", timeout=LOGIN_FORM_LOAD_WAIT_MS)
+            await page.wait_for_selector('input[type="email"]', timeout=EMAIL_SELECTOR_TIMEOUT_MS)
+
+            await page.fill('input[type="email"]', self.email)
+            await page.fill('input[type="password"]', self.password)
+
+            await page.click('button[type="submit"]')
+            await page.wait_for_url(
+                f"{self.base_url}/dashboard-individual",
+                timeout=LOGIN_NAVIGATION_TIMEOUT_MS,
+                wait_until="load",
+            )
+            await page.wait_for_load_state("domcontentloaded", timeout=POST_LOGIN_WAIT_MS)
+            logger.info(f"[{date}] Login successful")
+
+            # Navigate to report page
+            report_url = f"{self.base_url}/projects-report"
+            await page.goto(report_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT_MS)
+            await page.wait_for_load_state("domcontentloaded", timeout=REPORT_PAGE_LOAD_WAIT_MS)
+            await page.wait_for_timeout(2000)  # Wait for date buttons to render
+
+            # Navigate to the specific date using helper method
+            await self._navigate_page_to_date(page, date)
+
+            # Wait for content to render
+            try:
+                await page.wait_for_selector('text=Time Tracked', timeout=10000)
+                await page.wait_for_timeout(2000)
+            except Exception as e:
+                logger.warning(f"[{date}] Time Tracked header not found: {e}")
+
+            # Click Expand All
+            try:
+                expand_button = await page.wait_for_selector(
+                    'button:has-text("Expand All")', timeout=5000
+                )
+                if expand_button:
+                    await expand_button.click()
+                    await page.wait_for_timeout(2000)
+            except Exception as e:
+                logger.warning(f"[{date}] Could not click Expand All: {e}")
+
+            # Get HTML
+            html_content = await page.content()
+            logger.info(f"[{date}] Successfully scraped ({len(html_content)} bytes)")
+
+            # Cache the result
+            if self.use_cache:
+                self.cache.set(date, html_content)
+
+            return {"date": date, "html": html_content}
+
+        except Exception as e:
+            logger.error(f"[{date}] Error in parallel scrape: {e}")
+            raise
+        finally:
+            if page:
+                await page.close()
+
+    async def _navigate_page_to_date(self, page: Page, target_date: str):
+        """
+        Navigate a specific page to a target date.
+        Extracted from navigate_to_date to work with any page, not just self.page.
+
+        Args:
+            page: The page to navigate
+            target_date: Date in YYYY-MM-DD format
+        """
+        try:
+            target = datetime.strptime(target_date, "%Y-%m-%d")
+
+            # Get current date displayed on page
+            date_button = await page.query_selector('button:has-text(", 20")')
+            if not date_button:
+                logger.warning(f"[{target_date}] Could not find date display button")
+                return
+
+            current_date_text = await date_button.inner_text()
+
+            try:
+                current_date = datetime.strptime(current_date_text.strip(), "%b %d, %Y")
+            except ValueError:
+                logger.warning(f"[{target_date}] Could not parse date from: {current_date_text}")
+                return
+
+            days_diff = (current_date - target).days
+
+            if days_diff == 0:
+                logger.info(f"[{target_date}] Already on target date")
+                return
+
+            # Navigate using arrow buttons
+            if days_diff > 0:
+                # Go back in time
+                for i in range(days_diff):
+                    left_arrow = await page.query_selector(
+                        'button.navigation-button:has(mat-icon:has-text("keyboard_arrow_left"))'
+                    )
+                    if not left_arrow:
+                        break
+                    if await left_arrow.is_disabled():
+                        break
+                    await left_arrow.click()
+                    await page.wait_for_timeout(1500)
+            else:
+                # Go forward in time
+                days_forward = abs(days_diff)
+                for i in range(days_forward):
+                    right_arrow = await page.query_selector(
+                        'button.navigation-button:has(mat-icon:has-text("keyboard_arrow_right"))'
+                    )
+                    if not right_arrow:
+                        break
+                    if await right_arrow.is_disabled():
+                        break
+                    await right_arrow.click()
+                    await page.wait_for_timeout(1500)
+
+            logger.info(f"[{target_date}] Navigation complete")
+
+        except Exception as e:
+            logger.error(f"[{target_date}] Error navigating: {e}")
+
+    async def get_date_range_reports_parallel(
+        self, start_date: str, end_date: str, max_parallel: int = MAX_PARALLEL_SESSIONS
+    ) -> list[dict]:
+        """
+        Get reports for a date range using parallel browser contexts.
+
+        WHEN TO USE:
+        - Best for recent dates (< 7 days old) - less date navigation overhead
+        - Good for non-consecutive dates (e.g., Mondays only) - each date independent
+        - Beneficial when cache is cold and multiple dates needed
+
+        NOT RECOMMENDED:
+        - Consecutive dates far in the past (e.g., Oct 10-14 when today is Nov 5)
+          Use get_date_range_reports() instead - it navigates incrementally
+
+        PERFORMANCE:
+        - Recent dates (7 days ago): ~2x faster than sequential
+        - Old dates (30+ days ago): Similar or slower due to navigation overhead
+        - Each parallel session does full navigation from today to target date
+
+        Args:
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+            max_parallel: Maximum number of parallel sessions (default: 5)
+
+        Returns:
+            List[Dict]: List of dicts with 'date' and 'html' for each day, sorted by date
+        """
+        try:
+            logger.info(f"Fetching date range reports (PARALLEL) from {start_date} to {end_date}")
+
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+
+            # Generate list of dates
+            dates = []
+            current_date = start
+            while current_date <= end:
+                dates.append(current_date.strftime("%Y-%m-%d"))
+                current_date += timedelta(days=1)
+
+            logger.info(f"Scraping {len(dates)} dates in parallel (max {max_parallel} concurrent)")
+
+            # Create browser contexts and scrape in parallel with semaphore
+            semaphore = asyncio.Semaphore(max_parallel)
+
+            async def scrape_with_semaphore(date: str) -> dict:
+                async with semaphore:
+                    context = await self.browser.new_context(
+                        viewport={
+                            "width": BROWSER_VIEWPORT_WIDTH,
+                            "height": BROWSER_VIEWPORT_HEIGHT,
+                        },
+                        user_agent=BROWSER_USER_AGENT,
+                    )
+                    try:
+                        return await self._scrape_single_date_in_context(context, date)
+                    finally:
+                        await context.close()
+
+            # Run all scraping tasks in parallel
+            tasks = [scrape_with_semaphore(date) for date in dates]
+            reports = await asyncio.gather(*tasks)
+
+            # Sort by date to maintain order
+            reports.sort(key=lambda x: x["date"])
+
+            logger.info(
+                f"Successfully retrieved {len(reports)} daily reports in parallel session"
+            )
+            return reports
+
+        except Exception as e:
+            logger.error(f"Error fetching date range reports in parallel: {e}")
             raise
 
     async def get_weekly_report_html(self, start_date: str, end_date: str) -> list[str]:

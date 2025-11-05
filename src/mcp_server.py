@@ -88,7 +88,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="export_weekly_csv",
-            description="Get time tracking data for ANY date range in CSV or JSON format. Works with any number of days (1 day, 7 days, 30 days, etc). Returns data as text that you can save or analyze. Uses single login session for efficiency.",
+            description="Get time tracking data for ANY date range in CSV or JSON format. Works with any number of days (1 day, 7 days, 30 days, etc). Returns data as text that you can save or analyze. Supports parallel scraping for faster retrieval of recent dates.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -105,6 +105,18 @@ async def list_tools() -> list[Tool]:
                         "enum": ["csv", "json"],
                         "description": "Output format: 'csv' for CSV format (default) or 'json' for JSON format with summary",
                         "default": "csv",
+                    },
+                    "parallel": {
+                        "type": "string",
+                        "enum": ["auto", "true", "false"],
+                        "description": "Use parallel scraping: 'auto' (default, chooses based on date age), 'true' (force parallel), 'false' (force sequential). Parallel is 2x faster for recent dates.",
+                        "default": "auto",
+                    },
+                    "min_hours": {
+                        "type": "number",
+                        "description": "Filter out entries with hours less than this value (excludes entries < 6 minutes by default). Set to 0 to disable filter.",
+                        "default": 0.1,
+                        "minimum": 0,
                     },
                 },
                 "required": ["start_date", "end_date"],
@@ -250,21 +262,61 @@ async def handle_get_daily_report(arguments: dict) -> list[TextContent]:
 
 async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
     """Handle export_weekly_csv tool call - returns CSV or JSON data as text."""
+    import time
+
+    start_time = time.time()
+
     try:
         # Normalize dates
         start_date = normalize_date(arguments["start_date"])
         end_date = normalize_date(arguments["end_date"])
         output_format = arguments.get("format", "csv").lower()
-
-        logger.info(
-            f"Getting date range report from {start_date} to {end_date} in {output_format.upper()} format"
-        )
+        parallel_mode = arguments.get("parallel", "auto").lower()
+        min_hours = float(arguments.get("min_hours", 0.1))
 
         # Get scraper instance
         td_scraper = await get_scraper()
 
-        # Use single-session method - login once, get all dates, then close
-        all_reports = await td_scraper.get_date_range_data_single_session(start_date, end_date)
+        # Determine whether to use parallel scraping
+        use_parallel = False
+        method_name = "sequential"
+
+        if parallel_mode == "true":
+            use_parallel = True
+            method_name = "parallel (forced)"
+        elif parallel_mode == "false":
+            use_parallel = False
+            method_name = "sequential (forced)"
+        else:  # auto
+            # Auto-detect: use parallel if dates are recent (< 7 days old)
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            today = datetime.now()
+
+            days_old = (today - end_dt).days
+
+            if days_old <= 7:
+                use_parallel = True
+                method_name = "parallel (auto: recent dates)"
+            else:
+                use_parallel = False
+                method_name = "sequential (auto: old dates)"
+
+        logger.info(
+            f"Getting date range report from {start_date} to {end_date} in {output_format.upper()} format using {method_name}"
+        )
+
+        # Scrape based on chosen method
+        if use_parallel:
+            # Parallel scraping - faster for recent dates
+            await td_scraper.start_browser()
+            all_reports = await td_scraper.get_date_range_reports_parallel(start_date, end_date)
+            await td_scraper.close_browser()
+        else:
+            # Sequential scraping - use single-session method
+            all_reports = await td_scraper.get_date_range_data_single_session(
+                start_date, end_date
+            )
 
         # Parse all HTMLs
         all_entries = []
@@ -279,15 +331,36 @@ async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
         # Aggregate by task
         all_entries = parser.aggregate_by_task(all_entries)
 
+        # Apply min_hours filter if specified
+        entries_before_filter = len(all_entries)
+        if min_hours > 0:
+            all_entries = [e for e in all_entries if (e["seconds"] / 3600) >= min_hours]
+            logger.info(
+                f"Filtered {entries_before_filter - len(all_entries)} entries below {min_hours}h threshold"
+            )
+
         # Calculate stats
         transformed = transformer.transform_entries(all_entries)
         total_hours = transformer.calculate_total(transformed)
         summary = transformer.get_hours_summary(transformed)
 
+        # Calculate execution time
+        execution_time = time.time() - start_time
+
         # Generate output based on format
         if output_format == "json":
-            # JSON format - cleaner output
+            # JSON format - cleaner output with execution time
+            import json as json_lib
+
             json_data = entries_to_json_string(all_entries, include_total=True, indent=2)
+            # Parse, add execution time, re-serialize
+            json_obj = json_lib.loads(json_data)
+            json_obj["execution_time_seconds"] = round(execution_time, 2)
+            json_obj["scraping_method"] = method_name
+            if min_hours > 0:
+                json_obj["min_hours_filter"] = min_hours
+                json_obj["entries_filtered"] = entries_before_filter - len(all_entries)
+            json_data = json_lib.dumps(json_obj, indent=2, ensure_ascii=False)
 
             response = f"Time Doctor Report: {start_date} to {end_date} (JSON)\n"
             response += "=" * 60 + "\n\n"
@@ -299,8 +372,12 @@ async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
 
             response = f"Time Doctor Report: {start_date} to {end_date}\n"
             response += "=" * 60 + "\n\n"
+            response += f"Scraping method: {method_name}\n"
+            response += f"Execution time: {execution_time:.2f}s\n"
             response += f"Days Retrieved: {len(all_reports)}\n"
             response += f"Total Entries: {len(all_entries)}\n"
+            if min_hours > 0:
+                response += f"Min hours filter: {min_hours}h (filtered out {entries_before_filter - len(all_entries)} entries)\n"
             response += f"Total Hours: {total_hours:.2f}\n\n"
 
             # Add summary by project

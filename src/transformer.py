@@ -325,6 +325,10 @@ def entries_to_json_string(entries: list[dict], include_total: bool = True, inde
         total_hours = transformer.calculate_total(transformed)
         output_data["total_hours"] = total_hours
 
+        # Calculate total seconds from original entries
+        total_seconds = sum(entry["seconds"] for entry in entries)
+        output_data["total_seconds"] = total_seconds
+
         # Also add summary by project
         summary = transformer.get_hours_summary(transformed)
         output_data["summary_by_project"] = summary

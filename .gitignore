@@ -54,6 +54,9 @@ sample_report.html
 *.html
 *.png
 *screenshot*
+tests/screenshots/
+tests/integration/*.csv
+tests/integration/*.html
 
 # OS
 .DS_Store
