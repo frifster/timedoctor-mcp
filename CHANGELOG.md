@@ -5,6 +5,30 @@ All notable changes to Time Doctor MCP will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2025-11-05
+
+### Added
+- **15-Day Maximum Limit**: Date range requests now limited to maximum 15 days per request
+  - Prevents overly long scraping sessions that can timeout or fail
+  - Provides helpful error message with suggested date splits
+  - Example: 30-day request automatically suggests 2 × 15-day requests
+  - AI agents will naturally split larger requests into multiple calls
+
+### Benefits
+- **More Reliable**: Shorter scraping sessions are less likely to timeout
+- **Better UX**: Clear guidance when range is too large
+- **Agent-Friendly**: Forces AI agents to make multiple parallel requests for large ranges
+
+### Example Error Message
+```
+Date range too large: 31 days (max 15 days allowed).
+
+To get 31 days of data, please split into multiple requests:
+  1. 2025-10-01 to 2025-10-15 (15 days)
+  2. 2025-10-16 to 2025-10-30 (15 days)
+  3. 2025-10-31 to 2025-10-31 (1 day)
+```
+
 ## [1.2.1] - 2025-11-05
 
 ### Fixed

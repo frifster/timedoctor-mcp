@@ -1,6 +1,6 @@
 [project]
 name = "timedoctor-mcp"
-version = "1.2.1"
+version = "1.2.2"
 description = "MCP Server for extracting Time Doctor time tracking data via AI assistants"
 readme = "README.md"
 requires-python = ">=3.12"

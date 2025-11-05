@@ -88,17 +88,17 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="export_weekly_csv",
-            description="Get time tracking data for ANY date range in CSV or JSON format. Works with any number of days (1 day, 7 days, 30 days, etc). Returns data as text that you can save or analyze. Supports parallel scraping for faster retrieval of recent dates.",
+            description="Get time tracking data for a date range in CSV or JSON format. Maximum 15 days per request. For longer periods, split into multiple requests (e.g., 30 days = 2 requests of 15 days each). Returns data as text that you can save or analyze. Supports parallel scraping for faster retrieval.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "start_date": {
                         "type": "string",
-                        "description": "Start date in YYYY-MM-DD format (e.g., 2025-01-15). Can be any date.",
+                        "description": "Start date in YYYY-MM-DD format (e.g., 2025-01-15).",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in YYYY-MM-DD format (e.g., 2025-01-21). Can be any date, any range length.",
+                        "description": "End date in YYYY-MM-DD format (e.g., 2025-01-21). Maximum 15 days from start_date.",
                     },
                     "format": {
                         "type": "string",
@@ -274,6 +274,29 @@ async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
         parallel_mode = arguments.get("parallel", "auto").lower()
         min_hours = float(arguments.get("min_hours", 0.1))
 
+        # Validate date range (max 15 days)
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        days_diff = (end_dt - start_dt).days + 1  # +1 to include both start and end dates
+
+        if days_diff > 15:
+            error_msg = (
+                f"Date range too large: {days_diff} days (max 15 days allowed).\n\n"
+                f"To get {days_diff} days of data, please split into multiple requests:\n"
+            )
+            # Suggest how to split the request
+            num_requests = (days_diff + 14) // 15  # Round up
+            suggestions = []
+            current_start = start_dt
+            for i in range(num_requests):
+                chunk_end = min(current_start + timedelta(days=14), end_dt)
+                suggestions.append(
+                    f"  {i+1}. {current_start.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')} ({(chunk_end - current_start).days + 1} days)"
+                )
+                current_start = chunk_end + timedelta(days=1)
+            error_msg += "\n".join(suggestions)
+            return [TextContent(type="text", text=f"Error: {error_msg}")]
+
         # Get scraper instance
         td_scraper = await get_scraper()
 
@@ -289,10 +312,8 @@ async def handle_export_weekly_csv(arguments: dict) -> list[TextContent]:
             method_name = "sequential (forced)"
         else:  # auto
             # Auto-detect: use parallel if dates are recent (< 7 days old)
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            # (start_dt and end_dt already parsed above for validation)
             today = datetime.now()
-
             days_old = (today - end_dt).days
 
             if days_old <= 7:
